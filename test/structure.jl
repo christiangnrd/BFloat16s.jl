@@ -12,25 +12,26 @@ uint(x::BFloat16) = reinterpret(UInt16, x)
 @testset "BFloat16 bits" begin
   @test uint(two) == 0x4000
   @test uint(half) == 0x3f00
+  @test bitstring(two) == "0100000000000000"
+  @test bitstring(half) == "0011111100000000"
   @test signbit(two) == false
 end
 
 @testset "BFloat16 parts" begin
   @test exponent(whole) == 0
   @test significand(whole) == one(BFloat16)
-  
+
+  # subnormal
+  @test significand(reinterpret(BFloat16, 0b0000000000000001)) == one(BFloat16)
+
   @test frexp(phi) == (BFloat16(0.80859375), 1)
   @test ldexp(BFloat16(0.80859375), 1) == phi
-  
+
   @test exponent(invphi3) == -3
   @test significand(invphi3) == BFloat16(1.8828125)
-  
+
   fr,xp = frexp(invphi3)
   @test xp == -2
   @test fr == BFloat16(0.94140625)
   @test ldexp(fr, xp) == invphi3
 end
-
-
-  
-    

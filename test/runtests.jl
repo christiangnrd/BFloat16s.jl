@@ -2,6 +2,18 @@ using Test, BFloat16s, Printf, Random
 
 @info "Testing BFloat16s" BFloat16s.llvm_storage BFloat16s.llvm_arithmetic
 
+@testset "BFloat16s" begin
+
+@testset "basics" begin
+    @test Base.exponent_bits(BFloat16) == 8
+    @test Base.significand_bits(BFloat16) == 7
+    @test precision(BFloat16) == 8
+    @test Base.uinttype(BFloat16) == UInt16
+
+    @test typemin(BFloat16) == -BFloat16s.InfB16
+    @test typemax(BFloat16) == BFloat16s.InfB16
+end
+
 @testset "comparisons" begin
     @test BFloat16(1)   <  BFloat16(2)
     @test BFloat16(1f0) <  BFloat16(2f0)
@@ -18,17 +30,46 @@ using Test, BFloat16s, Printf, Random
     @test BFloat16(2)   != BFloat16(1)
     @test BFloat16(2f0) != BFloat16(1f0)
     @test BFloat16(2.0) != BFloat16(1.0)
+    @test BFloat16(NaN) != BFloat16(1.0)
+    @test !(BFloat16(1.0) == BFloat16(NaN))
     @test iszero(BFloat16(0)) == true
     @test iszero(BFloat16(3.45)) == false
+end
+
+@testset "trunc" begin
+    bf_val = BFloat16(5.5)
+    @testset "$Ti" for Ti in (Int8, Int16, Int32, Int64, Int128, UInt8, UInt16, UInt32, UInt64, UInt128)
+        if !(BFloat16s.llvm_arithmetic && sizeof(Ti) == 16) # Can't use skip  argument in @test on 1.6
+            @test trunc(Ti, bf_val) == Ti(5)
+        else
+            @test_skip trunc(Ti, bf_val) == Ti(5)
+        end
+    end
+
+    @test trunc(BFloat16, Float32(π)) == BFloat16(3.140625)
+
+    #InexactError
+    @test_throws InexactError trunc(Int16, typemax(BFloat16))
+    @test_throws InexactError trunc(UInt16, typemax(BFloat16))
 end
 
 @testset "conversions" begin
     @test Float32(BFloat16(10)) == 1f1
     @test Float64(BFloat16(10)) == 10.0
     @test Int32(BFloat16(10)) == Int32(10)
+    @test UInt32(BFloat16(10)) == Int32(10)
     @test Int64(BFloat16(10)) == Int64(10)
+    @test UInt64(BFloat16(10)) == Int64(10)
     @test BFloat16(BigFloat(1)) == BFloat16(1)
     @test BigFloat(BFloat16(1)) == BigFloat(1)
+    @test Float16(BFloat16(3.140625)) == Float16(π)
+    @test BFloat16(Float16(π)) == BFloat16(3.140625)
+
+    @test promote(BFloat16(4.5), Float64(5.0)) == (Float64(4.5), Float64(5.0))
+    @test promote(BFloat16(4.5), Float32(5.0)) == (Float32(4.5), Float32(5.0))
+
+    @test_throws InexactError Int16(typemax(BFloat16))
+    @test_throws InexactError UInt16(typemax(BFloat16))
 end
 
 @testset "abi" begin
@@ -44,6 +85,8 @@ end
     @test BFloat16(2) ^ BFloat16(4) == BFloat16(16)
     @test eps(BFloat16) == BFloat16(0.0078125)
     @test sqrt(BFloat16(4f0)) == BFloat16(2f0)
+    @test rem(BFloat16(3.14), Int) == 3
+    @test round(BFloat16(10.4), RoundToZero) == BFloat16(10.0)
     @test round(BFloat16(10.4), RoundUp) == BFloat16(11.0)
     @test round(BFloat16(10.6), RoundDown) == BFloat16(10.0)
     @test round(BFloat16(3.2), RoundNearest) == BFloat16(3.0)
@@ -92,6 +135,13 @@ end
     @test (@sprintf "%a" BFloat16(1.5)) == "0x1.8p+0"
 end
 
+@testset "show" begin
+    @test repr(BFloat16(Inf)) == "InfB16"
+    @test repr(BFloat16(-Inf)) == "-InfB16"
+    @test repr(BFloat16(NaN)) == "NaNB16"
+    @test repr(BFloat16(2)) == "BFloat16(2.0)"
+end
+
 @testset "random" begin
   x = Array{BFloat16}(undef, 10)
   y = Array{BFloat16}(undef, 10)
@@ -134,6 +184,9 @@ end
 
     @test x < nextfloat(x)
     @test x > prevfloat(x)
+
+    @test nextfloat(x, typemax(Int)) == typemax(BFloat16)
+    @test prevfloat(x, typemax(Int)) == typemin(BFloat16)
   end
 
   @test isnan(nextfloat(BFloat16s.NaNB16))
@@ -171,7 +224,7 @@ end
 end
 
 @testset "maxintfloat" begin
-  
+
   a = maxintfloat(BFloat16)
   @test a+1-1 == a-1    # the first +1 cannot be represented
   @test a-1+1 == a      # but -1 can
@@ -180,7 +233,7 @@ end
 @testset "rand sampling" begin
   Random.seed!(123)
   mi, ma = extrema(rand(BFloat16, 1_000_000))
-  
+
   # zero should be the lowest BFloat16 sampled
   @test mi === zero(BFloat16)
 
@@ -190,3 +243,5 @@ end
 
 include("structure.jl")
 include("mathfuncs.jl")
+
+end # @testset "BFloat16s"
