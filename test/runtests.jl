@@ -243,5 +243,6 @@ end
 
 include("structure.jl")
 include("mathfuncs.jl")
+include("lowprecarrays.jl")
 
 end # @testset "BFloat16s"
