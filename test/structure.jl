@@ -22,8 +22,15 @@ end
   @test significand(whole) == one(BFloat16)
 
   # subnormal
-  @test significand(reinterpret(BFloat16, 0b0000000000000001)) == one(BFloat16)
-
+  @testset "subnormal" begin
+      allbfs = UInt16(1):typemax(UInt16)
+      res = map(allbfs) do raw
+          bf = reinterpret(BFloat16, raw)
+          issubnormal(bf) == issubnormal(Float32(bf))
+      end
+      @test all(res)
+      @test significand(reinterpret(BFloat16, 0b0000000000000001)) == one(BFloat16)
+  end
   @test frexp(phi) == (BFloat16(0.80859375), 1)
   @test ldexp(BFloat16(0.80859375), 1) == phi
 
